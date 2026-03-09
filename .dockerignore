@@ -1,0 +1,21 @@
+# Exclude VCS metadata from the Docker build context.
+.git
+
+# Exclude local environment files and virtual environments.
+backend/.env
+backend/venv/
+backend/.vscode/
+
+# Exclude Python cache files and ignored generated artifacts.
+backend/__pycache__/
+backend/**/*.pyc
+backend/db/migrations/
+
+# Exclude local database files that are not needed in the image.
+backend/dev.db
+backend/db/dev.db
+
+# Exclude unrelated project areas from the backend image context.
+backend_django/
+docs/
+uml/
