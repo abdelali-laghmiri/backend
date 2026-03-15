@@ -18,6 +18,7 @@ from apps.employees.services import (
     update_employee,
 )
 from apps.permissions.dependencies import require_permission
+from core.pagination import limit_query, offset_query
 from db.session import get_db
 
 
@@ -50,12 +51,21 @@ def create_employee_endpoint(
 def list_employees_endpoint(
     department_id: int | None = None,
     team_id: int | None = None,
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_active_user),
 ):
     """List employees visible to the authenticated user."""
     try:
-        employees = list_employees(db, current_user, department_id, team_id)
+        employees = list_employees(
+            db,
+            current_user,
+            department_id,
+            team_id,
+            limit=limit,
+            offset=offset,
+        )
         return employees
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

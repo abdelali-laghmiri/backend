@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from apps.attendance.routers import router as attendance_router
+from apps.dashboard.routers import router as dashboard_router
 from core.settings import settings
 
 # =====================================================
@@ -33,6 +34,7 @@ app.include_router(organization_router)
 app.include_router(permissions_router)
 app.include_router(em_router)
 app.include_router(attendance_router)
+app.include_router(dashboard_router)
 app.include_router(requests_router)
 
 # Define a simple root endpoint

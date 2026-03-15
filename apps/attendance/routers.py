@@ -11,6 +11,7 @@ from apps.attendance.services import (
 from apps.auth.dependencies import require_active_user
 from apps.auth.models import User
 from apps.permissions.dependencies import require_permission
+from core.pagination import limit_query, offset_query
 from db.session import get_db
 
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
@@ -55,13 +56,15 @@ def check_out_endpoint(
 
 @router.get("/me", response_model=list[AttendanceResponse])
 def my_attendance_endpoint(
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_active_user),
 ):
     """Return the authenticated employee's attendance history."""
 
     try:
-        return get_my_attendance(db, current_user)
+        return get_my_attendance(db, current_user, limit=limit, offset=offset)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -72,13 +75,15 @@ def my_attendance_endpoint(
 @router.get("/employee/{employee_id}", response_model=list[AttendanceResponse])
 def employee_attendance_endpoint(
     employee_id: int,
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("attendance.read_employee")),
 ):
     """Return attendance history for a specific employee."""
 
     try:
-        return get_employee_attendance(db, employee_id)
+        return get_employee_attendance(db, employee_id, limit=limit, offset=offset)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from apps.auth.models import User
 from apps.permissions.dependencies import require_permission
 from apps.permissions.schemas import (
+    PermissionCreate,
     JobTitlePermissionAssign,
     JobTitlePermissionResponse,
     PermissionActionResponse,
@@ -11,10 +12,13 @@ from apps.permissions.schemas import (
 )
 from apps.permissions.services import (
     assign_permission_to_job_title,
+    create_permission,
+    delete_permission,
     list_job_title_permissions,
     list_permissions,
     remove_permission_from_job_title,
 )
+from core.pagination import limit_query, offset_query
 from db.session import get_db
 
 router = APIRouter(prefix="/permissions", tags=["Permissions"])
@@ -28,23 +32,62 @@ router = APIRouter(prefix="/permissions", tags=["Permissions"])
 @router.get("/", response_model=list[PermissionResponse])
 def list_permissions_endpoint(
     db: Session = Depends(get_db),
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     current_user: User = Depends(require_permission("permissions.read")),
 ):
     """List all available permissions."""
 
-    return list_permissions(db)
+    return list_permissions(db, limit=limit, offset=offset)
+
+
+@router.post("/", response_model=PermissionResponse)
+def create_permission_endpoint(
+    data: PermissionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("permissions.create")),
+):
+    """Create a new permission."""
+
+    try:
+        return create_permission(db, name=data.name, description=data.description)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.delete("/{permission_id}", response_model=PermissionActionResponse)
+def delete_permission_endpoint(
+    permission_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("permissions.delete")),
+):
+    """Delete an unused permission."""
+
+    try:
+        delete_permission(db, permission_id)
+        return {"message": "Permission deleted successfully"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
 
 @router.get("/job-titles/{job_title_id}", response_model=list[JobTitlePermissionResponse])
 def list_job_title_permissions_endpoint(
     job_title_id: int,
     db: Session = Depends(get_db),
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     current_user: User = Depends(require_permission("permissions.read")),
 ):
     """List permissions assigned to a job title."""
 
     try:
-        return list_job_title_permissions(db, job_title_id)
+        return list_job_title_permissions(db, job_title_id, limit=limit, offset=offset)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

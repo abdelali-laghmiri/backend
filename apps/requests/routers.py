@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from apps.auth.dependencies import require_active_user, require_superuser
 from apps.auth.models import User
+from core.pagination import limit_query, offset_query
 from db.session import get_db
 
 from . import schemas
@@ -50,12 +51,14 @@ def create_request_type_endpoint(
 
 @router.get("/types", response_model=list[schemas.RequestTypeResponse])
 def list_request_types_endpoint(
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_active_user),
 ):
     """List all available request types."""
 
-    return services.list_request_types(db)
+    return services.list_request_types(db, limit=limit, offset=offset)
 
 
 # =====================================================
@@ -97,13 +100,15 @@ def create_request_type_field_endpoint(
 @router.get("/types/{type_id}/fields", response_model=list[schemas.RequestTypeFieldResponse])
 def list_request_type_fields_endpoint(
     type_id: int,
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_active_user),
 ):
     """Return configured fields for a request type ordered by field order."""
 
     try:
-        return services.list_request_type_fields(db, type_id)
+        return services.list_request_type_fields(db, type_id, limit=limit, offset=offset)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -205,13 +210,15 @@ def create_approval_step_endpoint(
 @router.get("/types/{type_id}/steps", response_model=list[schemas.ApprovalStepResponse])
 def get_request_type_steps_endpoint(
     type_id: int,
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_active_user),
 ):
     """Return workflow steps for the given request type ordered by step order."""
 
     try:
-        return services.get_request_type_steps(db, type_id)
+        return services.get_request_type_steps(db, type_id, limit=limit, offset=offset)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -249,13 +256,15 @@ def create_request_endpoint(
 
 @router.get("/my", response_model=list[schemas.RequestResponse])
 def get_my_requests_endpoint(
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_active_user),
 ):
     """Return requests created by the authenticated user."""
 
     try:
-        return services.get_my_requests(db, current_user)
+        return services.get_my_requests(db, current_user, limit=limit, offset=offset)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -265,12 +274,14 @@ def get_my_requests_endpoint(
 
 @router.get("/approvals", response_model=list[schemas.ApprovalResponse])
 def get_my_approvals_endpoint(
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_active_user),
 ):
     """Return pending approval steps currently assigned to the user."""
 
-    return services.get_my_approvals(db, current_user)
+    return services.get_my_approvals(db, current_user, limit=limit, offset=offset)
 
 
 @router.get("/{request_id}", response_model=schemas.RequestDetailResponse)

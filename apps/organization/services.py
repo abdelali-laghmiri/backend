@@ -6,6 +6,7 @@ from apps.organization.models import Department, JobTitle, Team
 from apps.organization.schemas import JobTitleCreate
 from apps.permissions.models import JobTitlePermission
 from apps.requests.models import ApprovalStep
+from core.pagination import apply_pagination
 
 # =====================================================
 # Organization Services
@@ -32,6 +33,17 @@ def create_job_title(db: Session, data: JobTitleCreate) -> JobTitle:
     db.commit()
     db.refresh(job_title)
     return job_title
+
+
+def list_job_titles(
+    db: Session,
+    limit: int | None = None,
+    offset: int = 0,
+):
+    """List job titles in stable order with optional pagination."""
+
+    query = db.query(JobTitle).order_by(JobTitle.id)
+    return apply_pagination(query, limit, offset).all()
 
 
 def delete_job_title(db: Session, job_title_id: int):
@@ -88,17 +100,21 @@ def create_department(db: Session, name: str, description: str | None, manager_i
     return department
 
 
-def list_departments(db: Session):
+def list_departments(
+    db: Session,
+    limit: int | None = None,
+    offset: int = 0,
+):
     """List departments with manager and team relationships preloaded."""
-    return (
+    query = (
         db.query(Department)
         .options(
             joinedload(Department.manager),
             selectinload(Department.teams),
         )
         .order_by(Department.id)
-        .all()
     )
+    return apply_pagination(query, limit, offset).all()
 
 
 def delete_department(db: Session, department_id: int):
@@ -160,17 +176,21 @@ def create_team(
     return team
 
 
-def list_teams(db: Session):
+def list_teams(
+    db: Session,
+    limit: int | None = None,
+    offset: int = 0,
+):
     """List teams together with their department and team leader."""
-    return (
+    query = (
         db.query(Team)
         .options(
             joinedload(Team.department),
             joinedload(Team.team_leader),
         )
         .order_by(Team.id)
-        .all()
     )
+    return apply_pagination(query, limit, offset).all()
 
 
 def delete_team(db: Session, team_id: int):
@@ -188,13 +208,18 @@ def delete_team(db: Session, team_id: int):
     return True
 
 
-def get_teams_by_department(db: Session, department_id: int):
+def get_teams_by_department(
+    db: Session,
+    department_id: int,
+    limit: int | None = None,
+    offset: int = 0,
+):
     """Return the teams that belong to the specified department."""
     department_exists = db.query(Department.id).filter(Department.id == department_id).first()
     if not department_exists:
         raise ValueError("Department not found")
 
-    return (
+    query = (
         db.query(Team)
         .options(
             joinedload(Team.department),
@@ -202,5 +227,5 @@ def get_teams_by_department(db: Session, department_id: int):
         )
         .filter(Team.department_id == department_id)
         .order_by(Team.id)
-        .all()
     )
+    return apply_pagination(query, limit, offset).all()

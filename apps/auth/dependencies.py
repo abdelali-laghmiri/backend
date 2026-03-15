@@ -40,6 +40,12 @@ def get_current_user(
             detail="User not found",
         )
 
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Inactive user account",
+        )
+
     return user
 
 def require_active_user(current_user = Depends(get_current_user)):

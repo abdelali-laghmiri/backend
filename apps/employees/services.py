@@ -13,6 +13,7 @@ from apps.employees.models import Employee
 from apps.employees.schemas import EmployeeCreate, EmployeeUpdate
 from apps.organization.models import Department, JobTitle, PositionScope, Team
 from apps.requests.models import Request, RequestApproval
+from core.pagination import apply_pagination
 
 # =====================================================
 # Employee Services
@@ -166,6 +167,8 @@ def list_employees(
     current_user: User,
     department_id: int | None = None,
     team_id: int | None = None,
+    limit: int | None = None,
+    offset: int = 0,
 ):
     """List employees visible to the current user with optional filters."""
     query = get_visible_employees(db, current_user)
@@ -176,7 +179,8 @@ def list_employees(
     if team_id:
         query = query.filter(Employee.team_id == team_id)  # type: ignore
 
-    return query.order_by(Employee.id).all()  # type: ignore
+    query = query.order_by(Employee.id)
+    return apply_pagination(query, limit, offset).all()  # type: ignore
 
 
 def get_employee_by_id(db: Session, employee_id: int, current_user: User):

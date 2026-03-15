@@ -1,0 +1,389 @@
+PROJECT CHANGES
+================
+
+Date: 2026-03-15
+
+
+NEW APPLICATIONS CREATED
+------------------------
+
+1. attendance
+   - New modular application for employee check-in and check-out history.
+   - Added model, schemas, services, router, and database migration.
+
+2. dashboard
+   - New modular application for admin and user dashboard aggregation endpoints.
+   - Added schemas, services, and router.
+
+
+NEW MODELS CREATED
+------------------
+
+1. Attendance
+   - Stores employee attendance punches.
+   - Fields: id, employee_id, check_in, check_out, created_at.
+
+
+ENDPOINTS CREATED
+-----------------
+
+1. POST /attendance/check-in
+   - Creates a new attendance record for the authenticated employee.
+   - Rejects double check-in when an open attendance record already exists.
+
+2. POST /attendance/check-out
+   - Closes the employee's current open attendance record.
+   - Rejects check-out when there is no active check-in.
+
+3. GET /attendance/me
+   - Returns the authenticated employee's attendance history.
+
+4. GET /attendance/employee/{employee_id}
+   - Returns attendance history for a specific employee.
+   - Protected by the attendance.read_employee permission.
+
+5. GET /permissions/
+   - Returns the list of available permissions.
+
+6. GET /permissions/job-titles/{job_title_id}
+   - Returns permissions assigned to a specific job title.
+
+7. POST /permissions/job-titles/{job_title_id}
+   - Assigns a permission to a job title.
+
+8. DELETE /permissions/job-titles/{job_title_id}/{permission_id}
+   - Removes a permission assignment from a job title.
+
+9. GET /requests/{request_id}
+   - Returns a single request with its approval history.
+   - Accessible to the request owner, assigned approvers, and superusers.
+
+10. POST /organization/job-titles
+    - Corrected public endpoint for creating job titles.
+    - The old /organization/job-titels path was kept as a hidden compatibility alias.
+
+11. POST /auth/change-password
+    - Changes the authenticated user's password.
+    - Verifies the old password, validates the new password strength, and clears first_login.
+
+12. POST /permissions/
+    - Creates a new database-stored permission.
+
+13. DELETE /permissions/{permission_id}
+    - Deletes a permission when it is not assigned to any job title.
+
+14. GET /admin/dashboard/stats
+    - Returns high-level system statistics for the admin dashboard.
+
+15. GET /admin/dashboard/attendance-summary
+    - Returns attendance statistics for the admin dashboard.
+
+16. GET /admin/dashboard/request-summary
+    - Returns request workflow statistics for the admin dashboard.
+
+17. GET /dashboard/me/summary
+    - Returns the authenticated user's dashboard summary with personal request, attendance, and notification data.
+
+
+ENDPOINTS MODIFIED
+------------------
+
+1. POST /employees/
+   - Now validates department/team/job-title consistency.
+   - Creates a secure temporary password when no initial password is provided.
+   - Validates admin-provided initial passwords against the password policy.
+   - Returns temporary_password only when it was generated.
+
+2. POST /auth/login
+   - Now returns requires_password_change when first_login is true.
+   - Still returns the access token so the user can call /auth/change-password.
+
+3. GET /auth/me
+   - Now exposes first_login so the frontend can detect password-change-required state.
+
+4. GET /employees/
+   - Now returns a clean 404 when the authenticated user has no employee profile.
+
+5. GET /employees/me/profile
+   - Uses active-user validation and returns clearer errors.
+
+6. GET /employees/{employee_id}
+   - Uses active-user validation and clearer visibility checks.
+
+7. PUT /employees/{employee_id}
+   - Now validates email uniqueness and organization consistency before updating.
+
+8. DELETE /employees/{employee_id}
+   - Now blocks deletion when requests, attendance history, or approval history exist.
+
+9. POST /requests/
+   - Now only allows active employees to create requests.
+   - Builds workflow state using the actual first approval step order.
+
+10. GET /requests/my
+   - Now returns a clean 404 when the authenticated user has no employee profile.
+
+11. POST /requests/{request_id}/approve
+   - Now stores the approval comment in the database.
+   - Advances to the next real workflow step instead of assuming current_step + 1.
+
+12. POST /requests/{request_id}/reject
+    - Now stores the rejection comment in the database.
+
+13. GET /organization/job-titles
+    - Now returns job titles in a stable order.
+
+14. DELETE /organization/job-titles/{job_title_id}
+    - Now blocks deletion when employees, approval steps, or permission assignments depend on the job title.
+
+15. DELETE /organization/departments/{department_id}
+    - Now blocks deletion when teams or employees still belong to the department.
+
+16. DELETE /organization/teams/{team_id}
+    - Now blocks deletion when employees are still assigned to the team.
+
+17. GET /permissions/
+    - Now supports optional limit/offset pagination.
+
+18. GET /permissions/job-titles/{job_title_id}
+    - Now supports optional limit/offset pagination.
+
+19. GET /organization/job-titles
+    - Now supports optional limit/offset pagination.
+
+20. GET /organization/departments
+    - Now supports optional limit/offset pagination.
+
+21. GET /organization/teams
+    - Now supports optional limit/offset pagination.
+
+22. GET /organization/departments/{department_id}/teams
+    - Now supports optional limit/offset pagination.
+
+23. GET /employees/
+    - Now supports optional limit/offset pagination.
+
+24. GET /attendance/me
+    - Now supports optional limit/offset pagination.
+
+25. GET /attendance/employee/{employee_id}
+    - Now supports optional limit/offset pagination.
+
+26. GET /requests/types
+    - Now supports optional limit/offset pagination.
+
+27. GET /requests/types/{type_id}/fields
+    - Now supports optional limit/offset pagination.
+
+28. GET /requests/types/{type_id}/steps
+    - Now supports optional limit/offset pagination.
+
+29. GET /requests/my
+    - Now supports optional limit/offset pagination.
+
+30. GET /requests/approvals
+    - Now supports optional limit/offset pagination.
+
+
+ENDPOINTS REMOVED
+-----------------
+
+1. GET /auth/admin_only
+   - Removed because it was an example-only endpoint with no business value and no role in system logic.
+
+
+BUGS THAT WERE FIXED
+--------------------
+
+1. Predictable employee passwords were removed.
+   - The old password pattern based on employee names was insecure.
+   - Replaced with generated temporary passwords when an explicit password is not provided.
+
+2. The permissions system was incomplete.
+   - Added missing routers, schemas, services, endpoints, and unique assignment enforcement.
+
+3. The attendance module was missing entirely.
+   - Added the full application with rules for check-in/check-out behavior.
+
+4. Request detail retrieval was missing.
+   - Added GET /requests/{request_id}.
+
+5. Approval comments were accepted by the API but not saved.
+   - Added persistence in the request_approvals table.
+
+6. Request workflow progression assumed sequential numeric steps.
+   - Fixed to resolve the next actual configured step.
+
+7. Approval assignment could select the request creator as their own approver.
+   - Fixed by excluding the requester from approver resolution.
+
+8. Job title permission assignments could be duplicated.
+   - Added a unique database constraint and duplicate cleanup during migration.
+
+9. Organization deletion logic could break relational integrity.
+   - Added dependency checks before destructive operations.
+
+10. Permission checks did not enforce active-user status.
+    - Updated permission dependency to require active authenticated users.
+
+11. Environment loading could fail if DEBUG was set to release/production-like strings.
+    - Added normalization for deployment-style DEBUG values.
+
+12. CORS setup was moved back to centralized settings usage.
+    - Keeps the Railway frontend and local frontend origins in one place.
+
+13. The first_login flag existed but was not used to drive a password change flow.
+    - Login now signals when a password change is required, and a dedicated endpoint clears the flag after a successful password change.
+
+14. Password strength was not enforced for employee-provided initial passwords or user password changes.
+    - Added validation for secure passwords while keeping hashed-password handling unchanged.
+
+15. Inactive users could still authenticate and use JWT-protected endpoints inconsistently.
+    - Login now rejects inactive accounts and token resolution rejects inactive users consistently.
+
+16. The permissions system did not support database-managed permission creation and deletion.
+    - Added POST /permissions and DELETE /permissions/{permission_id}.
+
+17. The backend lacked dashboard aggregation endpoints for admin and user views.
+    - Added a dashboard app with admin and personal dashboard endpoints.
+
+18. Several list endpoints returned unbounded datasets.
+    - Added optional limit/offset pagination to core list endpoints.
+
+
+DATABASE CHANGES
+----------------
+
+1. Added Alembic revision:
+   - 9f6b1c2d4e7f_add_attendance_and_workflow_fixes.py
+
+2. New table:
+   - attendances
+
+3. New column:
+   - request_approvals.comment
+
+4. New constraint:
+   - uix_job_title_permission_assignment on (job_title_id, permission_id)
+
+5. New check constraint:
+   - ck_attendance_checkout_after_checkin
+
+6. ORM relationship improvements:
+   - Added back_populates and reverse relationships across auth, organization, employees, permissions, requests, and attendance models.
+
+7. Authentication flow changes:
+   - No new database schema was required because the existing users.first_login field is now used correctly by the API.
+
+8. No new database migration was required for dashboard and permission CRUD improvements.
+   - These features reuse existing tables and relations.
+
+
+ARCHITECTURAL IMPROVEMENTS
+--------------------------
+
+1. Preserved the modular app structure.
+   - auth
+   - organization
+   - employees
+   - permissions
+   - requests
+   - attendance
+
+2. Completed service-layer coverage for new modules instead of placing business logic in routers.
+
+3. Registered all application routers in the FastAPI bootstrap.
+
+4. Registered all ORM models in db/models.py so Alembic metadata stays complete.
+
+5. Improved DB integrity by pairing ORM changes with Alembic schema changes.
+
+6. Extended permission seeds with descriptions and idempotent backfill behavior.
+
+7. Reused the existing first_login field instead of introducing a second password-reset state.
+
+8. Added a dedicated dashboard app so admin and personal summary logic stays out of the existing business apps.
+
+9. Added a shared pagination helper to keep list endpoint behavior consistent without changing response shapes.
+
+
+IMPLEMENTATION NOTES
+--------------------
+
+Problems found:
+1. Missing attendance system.
+2. Missing permissions API surface.
+3. Missing request detail endpoint.
+4. Weak employee creation security.
+5. Missing validation around department/team/job-title assignments.
+6. Unsafe delete paths in organization and employees flows.
+7. Approval comments not persisted.
+8. Workflow progression logic was brittle.
+9. Incomplete ORM relationships limited maintainability and query correctness.
+10. The first_login flag was not connected to any usable password change flow.
+11. Password strength checks were missing for user-managed passwords.
+12. Inactive-user authentication behavior was inconsistent between login and dependency checks.
+13. The API had no admin dashboard endpoints and no aggregated personal dashboard endpoint.
+14. Some list endpoints could grow unbounded and become inefficient.
+
+How they were fixed:
+1. Added a complete attendance app with a dedicated model, service layer, router, and migration.
+2. Completed the permissions app with list, assign, and remove operations.
+3. Added a request detail endpoint and extended schemas to include approval history.
+4. Replaced insecure default employee passwords with generated temporary passwords.
+5. Added explicit service-level validation for organization assignments and email uniqueness.
+6. Added deletion guards where referential integrity or business history would be broken.
+7. Added comment persistence to request approvals.
+8. Changed workflow progression to query the next actual approval step.
+9. Added reverse relationships so the model graph is coherent and easier to evolve.
+10. Added a dedicated authenticated password change endpoint that verifies the old password and clears first_login.
+11. Added password policy validation for admin-provided employee passwords and user password changes.
+12. Enforced active-user validation consistently at login time and during bearer-token resolution.
+13. Added permission creation/deletion endpoints and kept assignments database-driven.
+14. Added a dashboard module for admin system metrics and user dashboard summaries.
+15. Added optional limit/offset pagination to core list endpoints while preserving existing list response shapes.
+
+Why this solution was chosen:
+1. It keeps the existing modular architecture intact.
+2. It avoids breaking current routes and keeps legacy compatibility where useful.
+3. It moves business rules into services instead of spreading them across routers.
+4. It uses Alembic for every schema change instead of runtime table creation.
+5. It improves security and data integrity without removing existing capabilities.
+6. It uses the existing first_login field instead of inventing parallel account-state logic.
+7. It avoids wrapping list responses in a new pagination envelope, which preserves compatibility with existing consumers.
+
+Architecture decisions made:
+1. Attendance was added as its own app instead of mixing it into employees.
+2. Permission management stayed in the permissions app and uses job-title assignments.
+3. Request visibility remained role- and ownership-based, with superuser bypass preserved.
+4. Compatibility for the misspelled /organization/job-titels path was preserved while introducing the corrected endpoint.
+5. Password-change enforcement is signaled through the existing login response contract with additive fields, which keeps the current authentication flow compatible.
+6. Dashboard aggregation lives in its own module so cross-domain queries do not leak into routers or unrelated business services.
+
+
+VERIFICATION
+------------
+
+1. The project compiles successfully with:
+   - python -m compileall main.py apps core db seeds
+
+2. Alembic migrations were validated on a fresh disposable database with:
+   - python -m alembic upgrade head
+   - python -m alembic check
+
+3. End-to-end API smoke tests were executed on a fresh disposable database and passed for:
+   - admin login
+   - first-login-required signaling on login
+   - authenticated password change
+   - inactive-user login rejection
+   - permission creation and deletion
+   - admin dashboard stats
+   - user dashboard summary
+   - organization setup
+   - permission assignment
+   - employee creation
+   - employee profile retrieval
+   - attendance check-in/check-out flow
+   - request creation
+   - approval retrieval
+   - request approval with saved comment

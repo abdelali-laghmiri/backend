@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from apps.organization.models import JobTitle
 
 from db.session import get_db
 from apps.organization.schemas import (
@@ -16,12 +15,14 @@ from apps.organization.services import (
     delete_job_title,
     create_department,
     list_departments,
+    list_job_titles as list_job_titles_service,
     get_teams_by_department,
     delete_department,
     create_team,
     list_teams,
     delete_team
 )
+from core.pagination import limit_query, offset_query
 
 from apps.auth.dependencies import require_superuser, require_active_user
 
@@ -53,12 +54,14 @@ def create_job_title_endpoint(
         )
     
 @router.get("/job-titles", response_model=list[JobTitleResponse])
-def list_job_titles(
+def list_job_titles_endpoint(
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     db: Session = Depends(get_db),
     current_user = Depends(require_active_user),
 ):
     """List all available job titles."""
-    return db.query(JobTitle).order_by(JobTitle.id).all()
+    return list_job_titles_service(db, limit=limit, offset=offset)
 @router.delete("/job-titles/{job_title_id}")
 def delete_job_title_endpoint(
     job_title_id: int,
@@ -99,11 +102,13 @@ def create_department_endpoint(
         )
 @router.get("/departments", response_model=list[DepartmentResponse])
 def list_departments_endpoint(
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     db: Session = Depends(get_db),
     current_user = Depends(require_active_user),
 ):
     """List departments with their related structure."""
-    return list_departments(db)
+    return list_departments(db, limit=limit, offset=offset)
 @router.delete("/departments/{department_id}")
 def delete_department_endpoint(
     department_id: int,
@@ -136,11 +141,13 @@ def create_team_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 @router.get("/teams", response_model=list[TeamResponse])
 def list_teams_endpoint(
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     db: Session = Depends(get_db),
     current_user = Depends(require_active_user),
 ):
     """List all teams."""
-    return list_teams(db)
+    return list_teams(db, limit=limit, offset=offset)
 @router.delete("/teams/{team_id}")
 def delete_team_endpoint(
     team_id: int,
@@ -157,11 +164,13 @@ def delete_team_endpoint(
 @router.get("/departments/{department_id}/teams", response_model=list[TeamResponse])
 def get_department_teams(
     department_id: int,
+    limit: int | None = Depends(limit_query),
+    offset: int = Depends(offset_query),
     db: Session = Depends(get_db),
     current_user = Depends(require_active_user),
 ):
     """List teams that belong to the specified department."""
     try:
-        return get_teams_by_department(db, department_id)
+        return get_teams_by_department(db, department_id, limit=limit, offset=offset)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

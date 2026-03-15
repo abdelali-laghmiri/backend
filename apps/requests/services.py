@@ -17,6 +17,7 @@ from apps.requests.models import (
     RequestType,
     RequestTypeField,
 )
+from core.pagination import apply_pagination
 
 # =====================================================
 # Request Services
@@ -68,10 +69,15 @@ def create_request_type(
     return request_type
 
 
-def list_request_types(db: Session):
+def list_request_types(
+    db: Session,
+    limit: int | None = None,
+    offset: int = 0,
+):
     """Return all request types ordered by their creation identifier."""
 
-    return db.query(RequestType).order_by(RequestType.id).all()
+    query = db.query(RequestType).order_by(RequestType.id)
+    return apply_pagination(query, limit, offset).all()
 
 
 # =====================================================
@@ -165,17 +171,22 @@ def create_request_type_field(
     return field
 
 
-def list_request_type_fields(db: Session, request_type_id: int):
+def list_request_type_fields(
+    db: Session,
+    request_type_id: int,
+    limit: int | None = None,
+    offset: int = 0,
+):
     """Return all configured fields for a request type ordered by field order."""
 
     get_request_type_or_error(db, request_type_id)
 
-    return (
+    query = (
         db.query(RequestTypeField)
         .filter(RequestTypeField.request_type_id == request_type_id)
         .order_by(RequestTypeField.field_order, RequestTypeField.id)
-        .all()
     )
+    return apply_pagination(query, limit, offset).all()
 
 
 def update_request_type_field(
@@ -315,17 +326,22 @@ def create_approval_step(
     return step
 
 
-def get_request_type_steps(db: Session, request_type_id: int):
+def get_request_type_steps(
+    db: Session,
+    request_type_id: int,
+    limit: int | None = None,
+    offset: int = 0,
+):
     """Return workflow steps for a request type ordered by step number."""
 
     get_request_type_or_error(db, request_type_id)
 
-    return (
+    query = (
         db.query(ApprovalStep)
         .filter(ApprovalStep.request_type_id == request_type_id)
         .order_by(ApprovalStep.step_order)
-        .all()
     )
+    return apply_pagination(query, limit, offset).all()
 
 
 # =====================================================
@@ -605,18 +621,20 @@ def create_request(
 def get_my_requests(
     db: Session,
     current_user: User,
+    limit: int | None = None,
+    offset: int = 0,
 ):
     """Return the requests created by the current user."""
 
     employee = get_employee_by_user_id(db, current_user.id)  # type: ignore
 
-    return (
+    query = (
         db.query(Request)
         .options(*REQUEST_LOAD_OPTIONS)
         .filter(Request.employee_id == employee.id)
         .order_by(Request.created_at.desc(), Request.id.desc())
-        .all()
     )
+    return apply_pagination(query, limit, offset).all()
 
 
 def get_request_by_id(
@@ -650,10 +668,12 @@ def get_request_by_id(
 def get_my_approvals(
     db: Session,
     current_user: User,
+    limit: int | None = None,
+    offset: int = 0,
 ):
     """Return actionable approval tasks assigned to the current user."""
 
-    return (
+    query = (
         db.query(RequestApproval)
         .join(Request, Request.id == RequestApproval.request_id)
         .options(joinedload(RequestApproval.request))
@@ -664,8 +684,8 @@ def get_my_approvals(
             Request.current_step == RequestApproval.step_order,
         )
         .order_by(RequestApproval.request_id, RequestApproval.step_order)
-        .all()
     )
+    return apply_pagination(query, limit, offset).all()
 
 
 # =====================================================

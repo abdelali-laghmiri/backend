@@ -6,6 +6,7 @@ from apps.attendance.models import Attendance
 from apps.auth.models import User
 from apps.employees.models import Employee, EmploymentStatus
 from apps.employees.services import get_employee_by_user_id
+from core.pagination import apply_pagination
 
 # =====================================================
 # Attendance Services
@@ -88,28 +89,38 @@ def check_out_employee(db: Session, current_user: User) -> Attendance:
     return attendance
 
 
-def get_my_attendance(db: Session, current_user: User):
+def get_my_attendance(
+    db: Session,
+    current_user: User,
+    limit: int | None = None,
+    offset: int = 0,
+):
     """Return the full attendance history of the current employee."""
 
     employee = get_employee_by_user_id(db, current_user.id)  # type: ignore[arg-type]
-    return (
+    query = (
         db.query(Attendance)
         .filter(Attendance.employee_id == employee.id)
         .order_by(Attendance.check_in.desc(), Attendance.id.desc())
-        .all()
     )
+    return apply_pagination(query, limit, offset).all()
 
 
-def get_employee_attendance(db: Session, employee_id: int):
+def get_employee_attendance(
+    db: Session,
+    employee_id: int,
+    limit: int | None = None,
+    offset: int = 0,
+):
     """Return the attendance history of a specific employee."""
 
     employee_exists = db.query(Employee.id).filter(Employee.id == employee_id).first()
     if not employee_exists:
         raise ValueError("Employee not found")
 
-    return (
+    query = (
         db.query(Attendance)
         .filter(Attendance.employee_id == employee_id)
         .order_by(Attendance.check_in.desc(), Attendance.id.desc())
-        .all()
     )
+    return apply_pagination(query, limit, offset).all()

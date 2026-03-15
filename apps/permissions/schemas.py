@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 # =====================================================
 # Permission Schemas
@@ -14,6 +14,13 @@ class PermissionResponse(BaseModel):
     description: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PermissionCreate(BaseModel):
+    """Payload used to create a new permission."""
+
+    name: str = Field(min_length=3, max_length=100, pattern=r"^[a-z][a-z0-9_.-]*$")
+    description: str | None = Field(default=None, max_length=255)
 
 
 class JobTitlePermissionAssign(BaseModel):
