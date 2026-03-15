@@ -1,3 +1,4 @@
+import sqlalchemy as sa
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -12,7 +13,7 @@ import enum
 from db.base import Base
 
 # Define an enum for user roles
-class UserRole(enum.Enum):
+class UserRole(str, enum.Enum):
     """Supported roles for application users."""
 
     USER = "user"
@@ -27,8 +28,8 @@ class User(Base):
     matricule =  Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     role = Column(Enum(UserRole), default=UserRole.USER, nullable=False)
-    is_active = Column(Boolean, default=True)
-    first_login = Column(Boolean, default=True)
+    is_active = Column(Boolean, nullable=False, default=True, server_default=sa.true())
+    first_login = Column(Boolean, nullable=False, default=True, server_default=sa.true())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     managed_departments = relationship("Department", back_populates="manager")
     led_teams = relationship("Team", back_populates="team_leader")

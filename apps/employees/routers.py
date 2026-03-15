@@ -54,6 +54,20 @@ def list_employees_endpoint(
     return employees
 
 
+@router.get("/me/profile", response_model=EmployeeResponse)
+def my_profile(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the employee profile of the authenticated user."""
+    from apps.employees.services import get_employee_by_user_id
+
+    try:
+        return get_employee_by_user_id(db, current_user.id)  # type: ignore
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
 @router.get("/{employee_id}", response_model=EmployeeResponse)
 def get_employee_endpoint(
     employee_id: int,
@@ -95,14 +109,3 @@ def delete_employee_endpoint(
         return {"message": "Employee deleted successfully"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-
-
-@router.get("/me/profile", response_model=EmployeeResponse)
-def my_profile(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Return the employee profile of the authenticated user."""
-    from apps.employees.services import get_employee_by_user_id
-
-    return get_employee_by_user_id(db, current_user.id)  # type: ignore

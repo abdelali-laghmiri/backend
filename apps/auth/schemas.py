@@ -1,6 +1,8 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
+from apps.auth.models import UserRole
+
 # =====================================================
 # Authentication Schemas
 # Defines request and response payloads for auth endpoints.
@@ -23,7 +25,7 @@ class UserResponse(BaseModel):
 
     id: int
     matricule: str
-    role : str
+    role: UserRole
     is_active: bool
     created_at: datetime
     # Use Pydantic v2 ORM serialization config.

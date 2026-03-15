@@ -1,21 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException,status
-from sqlalchemy.orm import Session
-from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import Depends
-
-
-from db.session import get_db
-from apps.auth.schemas import LoginRequest,TokenResponse,UserResponse
-from apps.auth.services import authenticate_user
-from core.security import create_access_token
+from fastapi import APIRouter, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
 
 from apps.auth.dependencies import get_current_user,require_superuser
+from apps.auth.schemas import TokenResponse, UserResponse
+from apps.auth.services import authenticate_user
+from core.security import create_access_token
+from db.session import get_db
 
 
 router = APIRouter(prefix="/auth",tags=["Auth"])
 
 
-@router.post("/login")
+@router.post("/login", response_model=TokenResponse)
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
@@ -38,7 +36,7 @@ def login(
         "token_type": "bearer",
     }
 
-@router.get("/me",response_model=UserResponse)
+@router.get("/me", response_model=UserResponse)
 def get_me(current_user = Depends(get_current_user)):
     """Return the currently authenticated user."""
     return current_user
@@ -46,4 +44,4 @@ def get_me(current_user = Depends(get_current_user)):
 @router.get("/admin_only")
 def admin_only(user = Depends(require_superuser)):
     """Example endpoint protected by the superuser dependency."""
-    return{"message":"welcomsuper user"}
+    return {"message": "welcome superuser"}

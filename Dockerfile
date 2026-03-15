@@ -9,16 +9,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN adduser --system --home /app appuser
+RUN addgroup --system appuser \
+    && adduser --system --home /app --ingroup appuser appuser
 
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY . .
-RUN chmod +x /app/scripts/start.sh \
-    && chown -R appuser:appuser /app
+COPY --chown=appuser:appuser . .
+RUN chmod +x /app/scripts/start.sh
 
 USER appuser
 
