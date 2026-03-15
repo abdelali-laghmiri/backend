@@ -3,6 +3,9 @@ import enum
 from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
+from apps.permissions.models import JobTitlePermission
+from apps.requests.models import ApprovalStep
 from db.base import Base
 
 # =====================================================
@@ -37,11 +40,11 @@ class JobTitle(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     employees = relationship("Employee", back_populates="job_title")
     permission_assignments = relationship(
-        "JobTitlePermission",
+        JobTitlePermission,
         back_populates="job_title",
         cascade="all, delete-orphan",
     )
-    approval_steps = relationship("ApprovalStep", back_populates="job_title")
+    approval_steps = relationship(ApprovalStep, back_populates="job_title")
 
 
 class Department(Base):

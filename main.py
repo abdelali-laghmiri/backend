@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import db.models  # noqa: F401
 from apps.attendance.routers import router as attendance_router
 from apps.dashboard.routers import router as dashboard_router
 from core.settings import settings
