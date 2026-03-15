@@ -16,12 +16,18 @@ from apps.requests.routers import router as requests_router
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
 
+origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://frontend-production-b935.up.railway.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_allowed_origins,
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept", "Origin"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
