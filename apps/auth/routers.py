@@ -3,14 +3,19 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from apps.auth.dependencies import get_current_user,require_superuser
-from apps.auth.schemas import TokenResponse, UserResponse
-from apps.auth.services import authenticate_user
+from apps.auth.dependencies import get_current_user, require_active_user, require_superuser
+from apps.auth.schemas import (
+    AuthActionResponse,
+    ChangePasswordRequest,
+    TokenResponse,
+    UserResponse,
+)
+from apps.auth.services import authenticate_user, change_password
 from core.security import create_access_token
 from db.session import get_db
 
 
-router = APIRouter(prefix="/auth",tags=["Auth"])
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -19,7 +24,13 @@ def login(
     db: Session = Depends(get_db),
 ):
     """Authenticate a user and issue a JWT access token."""
-    user = authenticate_user(db, form_data.username, form_data.password)
+    try:
+        user = authenticate_user(db, form_data.username, form_data.password)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
 
     if not user:
         raise HTTPException(
@@ -34,14 +45,39 @@ def login(
     return {
         "access_token": access_token,
         "token_type": "bearer",
+        "requires_password_change": user.first_login,
+        "message": (
+            "Password change required before normal use."
+            if user.first_login
+            else None
+        ),
     }
 
+
+@router.post("/change-password", response_model=AuthActionResponse)
+def change_password_endpoint(
+    data: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_active_user),
+):
+    """Change the authenticated user's password and clear the first-login flag."""
+
+    try:
+        change_password(
+            db,
+            current_user,
+            old_password=data.old_password,
+            new_password=data.new_password,
+        )
+        return {"message": "Password changed successfully"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
 @router.get("/me", response_model=UserResponse)
-def get_me(current_user = Depends(get_current_user)):
+def get_me(current_user=Depends(get_current_user)):
     """Return the currently authenticated user."""
     return current_user
-
-@router.get("/admin_only")
-def admin_only(user = Depends(require_superuser)):
-    """Example endpoint protected by the superuser dependency."""
-    return {"message": "welcome superuser"}

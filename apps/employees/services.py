@@ -1,10 +1,13 @@
-import secrets
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session, joinedload
 
 from apps.auth.models import User, UserRole
-from apps.auth.services import get_password_hash
+from apps.auth.services import (
+    generate_temporary_password,
+    get_password_hash,
+    validate_password_strength,
+)
 from apps.attendance.models import Attendance
 from apps.employees.models import Employee
 from apps.employees.schemas import EmployeeCreate, EmployeeUpdate
@@ -58,12 +61,6 @@ def _validate_employee_assignment(
         raise ValueError("Job title not found")
 
 
-def _generate_temporary_password() -> str:
-    """Generate a non-predictable temporary password for new employees."""
-
-    return secrets.token_urlsafe(12)
-
-
 def create_employee(db: Session, data: EmployeeCreate):
     """Create a user account and its linked employee profile."""
     existing_user = db.query(User.id).filter(User.matricule == data.matricule).first()
@@ -84,8 +81,10 @@ def create_employee(db: Session, data: EmployeeCreate):
     temporary_password: str | None = None
     raw_password = data.initial_password
     if not raw_password:
-        temporary_password = _generate_temporary_password()
+        temporary_password = generate_temporary_password()
         raw_password = temporary_password
+    else:
+        validate_password_strength(raw_password)
 
     hashed_password = get_password_hash(raw_password)
 
