@@ -40,6 +40,7 @@ class Settings(BaseSettings):
         origins = [
             "http://localhost:3000",
             "http://localhost:5173",
+            "https://frontend-production-b935.up.railway.app"
         ]
 
         if self.FRONTEND_URL:
