@@ -253,6 +253,12 @@ BUGS THAT WERE FIXED
 19. SQLAlchemy startup could fail with KeyError: 'JobTitlePermission'.
     - Fixed model registration timing so cross-app relationships resolve cleanly during mapper configuration.
 
+20. Frontend integration setup was not documented clearly enough for UI development.
+    - Added PROJECT_BACKEND_SUMMARY.md with module, auth, endpoint, security, and integration guidance based on the live OpenAPI surface.
+
+21. CORS origin handling was too rigid for mixed local and deployed frontend usage.
+    - FRONTEND_URL is now normalized centrally and can be configured per environment without touching application code.
+
 
 DATABASE CHANGES
 ----------------
@@ -309,6 +315,10 @@ ARCHITECTURAL IMPROVEMENTS
 
 9. Added a shared pagination helper to keep list endpoint behavior consistent without changing response shapes.
 
+10. Added PROJECT_BACKEND_SUMMARY.md as a frontend-facing technical reference built from the current routers, schemas, and OpenAPI output.
+
+11. Centralized frontend-origin normalization in settings so CORS remains environment-driven for local and deployed frontends.
+
 
 IMPLEMENTATION NOTES
 --------------------
@@ -347,6 +357,7 @@ How they were fixed:
 14. Added a dashboard module for admin system metrics and user dashboard summaries.
 15. Added optional limit/offset pagination to core list endpoints while preserving existing list response shapes.
 16. Deferred loader-option construction in service modules so SQLAlchemy does not configure mappers before all models are imported.
+17. Added a frontend-oriented backend summary document and kept it aligned with the current API surface.
 
 Why this solution was chosen:
 1. It keeps the existing modular architecture intact.
@@ -357,6 +368,7 @@ Why this solution was chosen:
 6. It uses the existing first_login field instead of inventing parallel account-state logic.
 7. It avoids wrapping list responses in a new pagination envelope, which preserves compatibility with existing consumers.
 8. It fixes ORM startup ordering without changing the database schema or resetting data.
+9. It keeps frontend-origin management in configuration instead of hardcoding deployment-specific domains in the app.
 
 Architecture decisions made:
 1. Attendance was added as its own app instead of mixing it into employees.
@@ -366,6 +378,7 @@ Architecture decisions made:
 5. Password-change enforcement is signaled through the existing login response contract with additive fields, which keeps the current authentication flow compatible.
 6. Dashboard aggregation lives in its own module so cross-domain queries do not leak into routers or unrelated business services.
 7. Model registration order in db/models.py was made less fragile, and mapper-heavy service constants were turned into runtime helpers.
+8. Frontend integration guidance was documented in a standalone markdown file so UI work does not depend on reading backend internals.
 
 
 VERIFICATION
@@ -395,3 +408,9 @@ VERIFICATION
    - request creation
    - approval retrieval
    - request approval with saved comment
+
+4. Runtime integration checks passed for:
+   - direct application import
+   - /docs loading successfully
+   - /openapi.json loading successfully
+   - CORS headers allowing requests from FRONTEND_URL and local development origins

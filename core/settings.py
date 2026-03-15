@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Smart GRH"
     DEBUG: bool = False
     DATABASE_URL: str
-    FRONTEND_URL: str | None = None
+    FRONTEND_URL: str = "http://localhost:3000"
 
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
@@ -48,17 +48,34 @@ class Settings(BaseSettings):
 
         return value
 
+    @field_validator("FRONTEND_URL", mode="before")
+    @classmethod
+    def normalize_frontend_url(cls, value: str) -> str:
+        """Normalize the configured frontend origin used by CORS."""
+        if not isinstance(value, str):
+            return value
+
+        normalized_origins = []
+        for origin in value.split(","):
+            normalized_origin = origin.strip().rstrip("/")
+            if normalized_origin:
+                normalized_origins.append(normalized_origin)
+
+        return ",".join(normalized_origins)
+
     @property
     def cors_allowed_origins(self) -> list[str]:
         """Return the explicit CORS allowlist for local and deployed frontends."""
         origins = [
             "http://localhost:3000",
             "http://localhost:5173",
-            "https://frontend-production-b935.up.railway.app",
         ]
 
-        if self.FRONTEND_URL:
-            origins.append(self.FRONTEND_URL.rstrip("/"))
+        origins.extend(
+            origin
+            for origin in self.FRONTEND_URL.split(",")
+            if origin
+        )
 
         return list(dict.fromkeys(origins))
 
