@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from apps.organization.models import JobTitle,Team
+from apps.organization.models import JobTitle
 
 from db.session import get_db
 from apps.organization.schemas import (
@@ -35,7 +35,8 @@ router = APIRouter(prefix="/organization", tags=["Organization"])
 
   
 #=================== job-titles routers ==================================#
-@router.post("/job-titels",response_model=JobTitleResponse)
+@router.post("/job-titels", response_model=JobTitleResponse, include_in_schema=False)
+@router.post("/job-titles", response_model=JobTitleResponse)
 def create_job_title_endpoint(
     data: JobTitleCreate,
     db: Session = Depends(get_db),
@@ -57,7 +58,7 @@ def list_job_titles(
     current_user = Depends(require_active_user),
 ):
     """List all available job titles."""
-    return db.query(JobTitle).all()
+    return db.query(JobTitle).order_by(JobTitle.id).all()
 @router.delete("/job-titles/{job_title_id}")
 def delete_job_title_endpoint(
     job_title_id: int,

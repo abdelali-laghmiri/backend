@@ -34,3 +34,4 @@ class User(Base):
     managed_departments = relationship("Department", back_populates="manager")
     led_teams = relationship("Team", back_populates="team_leader")
     employee = relationship("Employee", back_populates="user", uselist=False)
+    approvals_to_review = relationship("RequestApproval", back_populates="approver")

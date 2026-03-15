@@ -10,16 +10,27 @@ def seed_permissions(db: Session) -> int:
     existing_permissions = {
         name
         for (name,) in db.query(Permission.name)
-        .filter(Permission.name.in_(PERMISSIONS))
+        .filter(Permission.name.in_(PERMISSIONS.keys()))
         .all()
     }
     missing_permissions = [
-        Permission(name=permission_name)
+        Permission(
+            name=permission_name,
+            description=PERMISSIONS[permission_name],
+        )
         for permission_name in PERMISSIONS
         if permission_name not in existing_permissions
     ]
 
+    for permission_name, description in PERMISSIONS.items():
+        (
+            db.query(Permission)
+            .filter(Permission.name == permission_name, Permission.description.is_(None))
+            .update({"description": description}, synchronize_session=False)
+        )
+
     if not missing_permissions:
+        db.commit()
         return 0
 
     db.add_all(missing_permissions)

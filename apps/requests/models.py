@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, JSON, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -120,7 +120,7 @@ class ApprovalStep(Base):
         "RequestType",
         back_populates="approval_steps",
     )
-    job_title = relationship("JobTitle")
+    job_title = relationship("JobTitle", back_populates="approval_steps")
 
     __table_args__ = (
         UniqueConstraint("request_type_id", "step_order", name="uix_request_step_order"),
@@ -148,12 +148,13 @@ class Request(Base):
     extra_data = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    employee = relationship("Employee")
+    employee = relationship("Employee", back_populates="requests")
     request_type = relationship("RequestType", back_populates="requests")
     approvals = relationship(
         "RequestApproval",
         back_populates="request",
         cascade="all, delete",
+        order_by="RequestApproval.step_order",
     )
 
 
@@ -176,9 +177,10 @@ class RequestApproval(Base):
         nullable=False,
     )
     approved_at = Column(DateTime(timezone=True), nullable=True)
+    comment = Column(Text, nullable=True)
 
     request = relationship(
         "Request",
         back_populates="approvals",
     )
-    approver = relationship("User")
+    approver = relationship("User", back_populates="approvals_to_review")

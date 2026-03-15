@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from apps.auth.dependencies import get_current_user, require_active_user, require_superuser
+from apps.auth.dependencies import require_active_user, require_superuser
 from apps.auth.models import User
 from db.session import get_db
 
@@ -229,7 +229,7 @@ def get_request_type_steps_endpoint(
 def create_request_endpoint(
     data: schemas.RequestCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_active_user),
 ):
     """Create a new request for the authenticated user."""
 
@@ -250,21 +250,44 @@ def create_request_endpoint(
 @router.get("/my", response_model=list[schemas.RequestResponse])
 def get_my_requests_endpoint(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_active_user),
 ):
     """Return requests created by the authenticated user."""
 
-    return services.get_my_requests(db, current_user)
+    try:
+        return services.get_my_requests(db, current_user)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
 
 
 @router.get("/approvals", response_model=list[schemas.ApprovalResponse])
 def get_my_approvals_endpoint(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_active_user),
 ):
     """Return pending approval steps currently assigned to the user."""
 
     return services.get_my_approvals(db, current_user)
+
+
+@router.get("/{request_id}", response_model=schemas.RequestDetailResponse)
+def get_request_endpoint(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_active_user),
+):
+    """Return a single request visible to the authenticated user."""
+
+    try:
+        return services.get_request_by_id(db, request_id, current_user)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
 
 
 # =====================================================
@@ -278,7 +301,7 @@ def approve_request_endpoint(
     request_id: int,
     data: schemas.ApprovalAction,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_active_user),
 ):
     """Approve the current request step assigned to the authenticated user."""
 
@@ -297,7 +320,7 @@ def reject_request_endpoint(
     request_id: int,
     data: schemas.ApprovalAction,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_active_user),
 ):
     """Reject the current request step assigned to the authenticated user."""
 

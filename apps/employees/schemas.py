@@ -21,6 +21,7 @@ class EmployeeCreate(BaseModel):
     department_id: int
     team_id: int
     job_title_id: int
+    initial_password: str | None = None
 
 
 class EmployeeResponse(BaseModel):
@@ -41,6 +42,12 @@ class EmployeeResponse(BaseModel):
 
     # Use Pydantic v2 ORM serialization config.
     model_config = ConfigDict(from_attributes=True)
+
+
+class EmployeeCreateResponse(EmployeeResponse):
+    """Employee create response that can expose a generated temporary password."""
+
+    temporary_password: str | None = None
 
 
 class EmployeeListResponse(BaseModel):

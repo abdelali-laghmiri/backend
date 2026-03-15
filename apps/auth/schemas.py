@@ -8,12 +8,6 @@ from apps.auth.models import UserRole
 # Defines request and response payloads for auth endpoints.
 # =====================================================
 
-class LoginRequest(BaseModel):
-    """Credentials payload for a login attempt."""
-
-    matricule: str
-    password: str
-
 class TokenResponse(BaseModel):
     """JWT token returned after a successful authentication."""
 

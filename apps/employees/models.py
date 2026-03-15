@@ -2,8 +2,6 @@ from sqlalchemy import Column, Integer, String, Date, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from db.base import Base
 
-from apps.organization.models import Department, Team, JobTitle
-from apps.auth.models import User
 from enum import Enum as PyEnum
 
 # =====================================================
@@ -18,6 +16,7 @@ class EmploymentStatus(str, PyEnum):
     ACTIVE = "ACTIVE"
     SUSPENDED = "SUSPENDED"
     TERMINATED = "TERMINATED"
+
 
 class Employee(Base):
     """Employee profile linked to organizational assignments and a user account."""
@@ -46,6 +45,12 @@ class Employee(Base):
 
     # Relationships
     user = relationship("User", back_populates="employee")
-    department = relationship("Department")
-    team = relationship("Team")
-    job_title = relationship("JobTitle")
+    department = relationship("Department", back_populates="employees")
+    team = relationship("Team", back_populates="employees")
+    job_title = relationship("JobTitle", back_populates="employees")
+    requests = relationship("Request", back_populates="employee")
+    attendance_records = relationship(
+        "Attendance",
+        back_populates="employee",
+        cascade="all, delete-orphan",
+    )

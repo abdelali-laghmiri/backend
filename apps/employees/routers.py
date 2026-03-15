@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from apps.auth.dependencies import get_current_user
+from apps.auth.dependencies import require_active_user
 from apps.auth.models import User
 from apps.employees.schemas import (
     EmployeeCreate,
+    EmployeeCreateResponse,
     EmployeeListResponse,
     EmployeeResponse,
     EmployeeUpdate,
@@ -28,7 +29,7 @@ router = APIRouter(prefix="/employees", tags=["Employees"])
 # =====================================================
 
 
-@router.post("/", response_model=EmployeeResponse)
+@router.post("/", response_model=EmployeeCreateResponse)
 def create_employee_endpoint(
     data: EmployeeCreate,
     db: Session = Depends(get_db),
@@ -36,8 +37,11 @@ def create_employee_endpoint(
 ):
     """Create a new employee profile and linked user account."""
     try:
-        employee = create_employee(db, data)
-        return employee
+        result = create_employee(db, data)
+        return {
+            **EmployeeResponse.model_validate(result.employee).model_dump(),
+            "temporary_password": result.temporary_password,
+        }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -47,17 +51,20 @@ def list_employees_endpoint(
     department_id: int | None = None,
     team_id: int | None = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_active_user),
 ):
     """List employees visible to the authenticated user."""
-    employees = list_employees(db, current_user, department_id, team_id)
-    return employees
+    try:
+        employees = list_employees(db, current_user, department_id, team_id)
+        return employees
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/me/profile", response_model=EmployeeResponse)
 def my_profile(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_active_user),
 ):
     """Return the employee profile of the authenticated user."""
     from apps.employees.services import get_employee_by_user_id
@@ -72,7 +79,7 @@ def my_profile(
 def get_employee_endpoint(
     employee_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_active_user),
 ):
     """Return a single employee visible to the authenticated user."""
     try:

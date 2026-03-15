@@ -16,6 +16,20 @@ class Settings(BaseSettings):
     SUPERUSER_MATRICULE: str | None = None
     SUPERUSER_PASSWORD: str | None = None
 
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def normalize_debug_value(cls, value: bool | str) -> bool | str:
+        """Accept deployment-style debug strings without crashing settings load."""
+        if not isinstance(value, str):
+            return value
+
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on", "debug"}:
+            return True
+        if normalized in {"0", "false", "no", "off", "release", "production", "prod"}:
+            return False
+        return value
+
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def normalize_database_url(cls, value: str) -> str:
@@ -40,13 +54,13 @@ class Settings(BaseSettings):
         origins = [
             "http://localhost:3000",
             "http://localhost:5173",
-            "https://frontend-production-b935.up.railway.app"
+            "https://frontend-production-b935.up.railway.app",
         ]
 
         if self.FRONTEND_URL:
             origins.append(self.FRONTEND_URL.rstrip("/"))
 
-        return origins
+        return list(dict.fromkeys(origins))
 
     # Use the Pydantic v2 settings configuration API.
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

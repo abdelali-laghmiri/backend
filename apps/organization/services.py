@@ -1,8 +1,11 @@
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from apps.auth.models import User
+from apps.employees.models import Employee
 from apps.organization.models import Department, JobTitle, Team
 from apps.organization.schemas import JobTitleCreate
+from apps.permissions.models import JobTitlePermission
+from apps.requests.models import ApprovalStep
 
 # =====================================================
 # Organization Services
@@ -36,6 +39,26 @@ def delete_job_title(db: Session, job_title_id: int):
     job_title = db.query(JobTitle).filter(JobTitle.id == job_title_id).first()
     if not job_title:
         raise ValueError("Job title not found")
+
+    has_employees = db.query(Employee.id).filter(Employee.job_title_id == job_title_id).first()
+    if has_employees:
+        raise ValueError("Cannot delete job title assigned to employees")
+
+    has_workflow_steps = (
+        db.query(ApprovalStep.id)
+        .filter(ApprovalStep.job_title_id == job_title_id)
+        .first()
+    )
+    if has_workflow_steps:
+        raise ValueError("Cannot delete job title used in approval workflows")
+
+    has_permission_assignments = (
+        db.query(JobTitlePermission.id)
+        .filter(JobTitlePermission.job_title_id == job_title_id)
+        .first()
+    )
+    if has_permission_assignments:
+        raise ValueError("Cannot delete job title with permission assignments")
 
     db.delete(job_title)
     db.commit()
@@ -87,6 +110,14 @@ def delete_department(db: Session, department_id: int):
     has_teams = db.query(Team.id).filter(Team.department_id == department_id).first()
     if has_teams:
         raise ValueError("Cannot delete department with existing teams")
+
+    has_employees = (
+        db.query(Employee.id)
+        .filter(Employee.department_id == department_id)
+        .first()
+    )
+    if has_employees:
+        raise ValueError("Cannot delete department with assigned employees")
 
     db.delete(department)
     db.commit()
@@ -147,6 +178,10 @@ def delete_team(db: Session, team_id: int):
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
         raise ValueError("Team not found")
+
+    has_employees = db.query(Employee.id).filter(Employee.team_id == team_id).first()
+    if has_employees:
+        raise ValueError("Cannot delete team with assigned employees")
 
     db.delete(team)
     db.commit()

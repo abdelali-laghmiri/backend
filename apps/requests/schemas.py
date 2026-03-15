@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from apps.requests.models import RequestFieldType
 
@@ -189,6 +189,12 @@ class RequestResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class RequestDetailResponse(RequestResponse):
+    """Detailed request payload including approval history."""
+
+    approvals: list["ApprovalResponse"]
+
+
 # =====================================================
 # Approval Schemas
 # Defines payloads for approval inbox responses and actions.
@@ -204,6 +210,7 @@ class ApprovalResponse(BaseModel):
     step_order: int
     status: ApprovalStatus
     approved_at: datetime | None = None
+    comment: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -211,10 +218,13 @@ class ApprovalResponse(BaseModel):
 class ApprovalAction(BaseModel):
     """Optional payload sent when approving or rejecting a request."""
 
-    comment: str | None = None
+    comment: str | None = Field(default=None, max_length=1000)
 
 
 class ActionResponse(BaseModel):
     """Simple response payload returned by workflow actions."""
 
     message: str
+
+
+RequestDetailResponse.model_rebuild()

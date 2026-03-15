@@ -1,10 +1,10 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
-from apps.auth.models import User
-from apps.employees.models import Employee
+from apps.auth.models import User, UserRole
+from apps.employees.models import Employee, EmploymentStatus
 from apps.employees.services import get_employee_by_user_id
 from apps.organization.models import JobTitle, PositionScope
 from apps.requests.models import (
@@ -23,6 +23,12 @@ from apps.requests.models import (
 # Handles request type configuration, dynamic field setup,
 # workflow creation, request submission, and approvals.
 # =====================================================
+
+REQUEST_LOAD_OPTIONS = (
+    joinedload(Request.request_type),
+    joinedload(Request.employee).joinedload(Employee.user),
+    selectinload(Request.approvals).joinedload(RequestApproval.approver),
+)
 
 
 # =====================================================
@@ -468,7 +474,9 @@ def find_approver_by_job_title(
     scope = job_title.scope
 
     query = db.query(Employee).filter(
-        Employee.job_title_id == job_title.id
+        Employee.job_title_id == job_title.id,
+        Employee.user_id != employee.user_id,
+        Employee.employment_status == EmploymentStatus.ACTIVE,
     )
 
     if scope == PositionScope.TEAM:  # type: ignore
@@ -481,7 +489,7 @@ def find_approver_by_job_title(
             Employee.department_id == employee.department_id
         )
 
-    approver = query.first()
+    approver = query.order_by(Employee.id).first()
 
     if not approver:
         raise ValueError("Approver not found")
@@ -536,8 +544,8 @@ def create_request(
 
     employee = get_employee_by_user_id(db, current_user.id)  # type: ignore
 
-    if not employee:
-        raise ValueError("Employee profile not found")
+    if employee.employment_status != EmploymentStatus.ACTIVE:
+        raise ValueError("Only active employees can create requests")
 
     validate_request_extra_data(db, request_type_id, extra_data)
 
@@ -555,34 +563,43 @@ def create_request(
         employee_id=employee.id,
         request_type_id=request_type_id,
         status=RequestStatus.PENDING,
-        current_step=1,
+        current_step=steps[0].step_order,
         extra_data=extra_data,
     )
 
-    db.add(request)
-    db.flush()
+    try:
+        db.add(request)
+        db.flush()
 
-    for step in steps:
-        # Each workflow step is materialized so the assigned approver is fixed
-        # at request creation time.
-        approver_user_id = find_approver_by_job_title(
-            db,
-            employee,
-            step.job_title,
-        )
+        for step in steps:
+            # Each workflow step is materialized so the assigned approver is fixed
+            # at request creation time.
+            approver_user_id = find_approver_by_job_title(
+                db,
+                employee,
+                step.job_title,
+            )
 
-        approval = RequestApproval(
-            request_id=request.id,
-            step_order=step.step_order,
-            approver_user_id=approver_user_id,
-            status=ApprovalStatus.PENDING,
-        )
+            approval = RequestApproval(
+                request_id=request.id,
+                step_order=step.step_order,
+                approver_user_id=approver_user_id,
+                status=ApprovalStatus.PENDING,
+            )
 
-        db.add(approval)
+            db.add(approval)
 
-    db.commit()
-    db.refresh(request)
-    return request
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return (
+        db.query(Request)
+        .options(*REQUEST_LOAD_OPTIONS)
+        .filter(Request.id == request.id)
+        .first()
+    )
 
 
 def get_my_requests(
@@ -595,10 +612,39 @@ def get_my_requests(
 
     return (
         db.query(Request)
+        .options(*REQUEST_LOAD_OPTIONS)
         .filter(Request.employee_id == employee.id)
-        .order_by(Request.id)
+        .order_by(Request.created_at.desc(), Request.id.desc())
         .all()
     )
+
+
+def get_request_by_id(
+    db: Session,
+    request_id: int,
+    current_user: User,
+) -> Request:
+    """Return a request if the current user is allowed to view it."""
+
+    request = (
+        db.query(Request)
+        .options(*REQUEST_LOAD_OPTIONS)
+        .filter(Request.id == request_id)
+        .first()
+    )
+    if not request:
+        raise ValueError("Request not found")
+
+    if current_user.role == UserRole.SUPERUSER:  # type: ignore[comparison-overlap]
+        return request
+
+    if request.employee.user_id == current_user.id:  # type: ignore[union-attr]
+        return request
+
+    if any(approval.approver_user_id == current_user.id for approval in request.approvals):
+        return request
+
+    raise ValueError("Request not found")
 
 
 def get_my_approvals(
@@ -610,6 +656,7 @@ def get_my_approvals(
     return (
         db.query(RequestApproval)
         .join(Request, Request.id == RequestApproval.request_id)
+        .options(joinedload(RequestApproval.request))
         .filter(
             RequestApproval.approver_user_id == current_user.id,
             RequestApproval.status == ApprovalStatus.PENDING,
@@ -635,28 +682,28 @@ def approve_request(
 ):
     """Approve the current workflow step and advance the request."""
 
-    # Approval comments are accepted by the API contract, but the current
-    # data model does not persist them.
-    _ = comment
-
     approval = get_pending_approval_for_request(db, request_id, current_user)
 
     approval.status = ApprovalStatus.APPROVED  # type: ignore
-    approval.approved_at = datetime.utcnow()  # type: ignore
+    approval.approved_at = datetime.now(timezone.utc)  # type: ignore
+    approval.comment = comment
 
     request = approval.request
 
     # Move the request to the next workflow step, or finalize it when the
     # current approval completes the workflow.
-    next_step = request.current_step + 1
-
-    next_approval = db.query(RequestApproval).filter(
-        RequestApproval.request_id == request.id,
-        RequestApproval.step_order == next_step,
-    ).first()
+    next_approval = (
+        db.query(RequestApproval)
+        .filter(
+            RequestApproval.request_id == request.id,
+            RequestApproval.step_order > approval.step_order,
+        )
+        .order_by(RequestApproval.step_order)
+        .first()
+    )
 
     if next_approval:
-        request.current_step = next_step
+        request.current_step = next_approval.step_order
     else:
         request.status = RequestStatus.APPROVED
         request.current_step = None
@@ -673,14 +720,11 @@ def reject_request(
 ):
     """Reject the current workflow step and close the request."""
 
-    # Approval comments are accepted by the API contract, but the current
-    # data model does not persist them.
-    _ = comment
-
     approval = get_pending_approval_for_request(db, request_id, current_user)
 
     approval.status = ApprovalStatus.REJECTED  # type: ignore
-    approval.approved_at = datetime.utcnow()  # type: ignore
+    approval.approved_at = datetime.now(timezone.utc)  # type: ignore
+    approval.comment = comment
 
     request = approval.request
     request.status = RequestStatus.REJECTED
