@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from core.settings import settings
 
@@ -13,9 +14,16 @@ from apps.organization.routers import router as organization_router
 from apps.employees.routers import router as em_router
 from apps.requests.routers import router as requests_router
 
-
-
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin"],
+)
+
 
 # Include application routers.
 app.include_router(auth_routers)

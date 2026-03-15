@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Smart GRH"
     DEBUG: bool = False
     DATABASE_URL: str
+    FRONTEND_URL: str | None = None
 
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
@@ -32,6 +33,19 @@ class Settings(BaseSettings):
             return value.replace("mysql://", "mysql+pymysql://", 1)
 
         return value
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        """Return the explicit CORS allowlist for local and deployed frontends."""
+        origins = [
+            "http://localhost:3000",
+            "http://localhost:5173",
+        ]
+
+        if self.FRONTEND_URL:
+            origins.append(self.FRONTEND_URL.rstrip("/"))
+
+        return origins
 
     # Use the Pydantic v2 settings configuration API.
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
