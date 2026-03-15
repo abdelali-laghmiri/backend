@@ -20,13 +20,15 @@ from core.pagination import apply_pagination
 # Handles employee creation, visibility, updates, and deletion.
 # =====================================================
 
-# Relationship options reused when employee details need related entities.
-EMPLOYEE_LOAD_OPTIONS = (
-    joinedload(Employee.job_title),
-    joinedload(Employee.department),
-    joinedload(Employee.team),
-    joinedload(Employee.user),
-)
+def _employee_load_options():
+    """Build loader options lazily so mappers configure after all models are imported."""
+
+    return (
+        joinedload(Employee.job_title),
+        joinedload(Employee.department),
+        joinedload(Employee.team),
+        joinedload(Employee.user),
+    )
 
 
 @dataclass
@@ -123,7 +125,7 @@ def create_employee(db: Session, data: EmployeeCreate):
 
     created_employee = (
         db.query(Employee)
-        .options(*EMPLOYEE_LOAD_OPTIONS)
+        .options(*_employee_load_options())
         .filter(Employee.id == employee.id)
         .first()
     )
@@ -136,7 +138,7 @@ def create_employee(db: Session, data: EmployeeCreate):
 def get_visible_employees(db: Session, current_user: User):
     """Build the employee query constrained by the current user's scope."""
     if current_user.role == UserRole.SUPERUSER:  # type: ignore
-        return db.query(Employee).options(*EMPLOYEE_LOAD_OPTIONS)
+        return db.query(Employee).options(*_employee_load_options())
 
     current_employee = get_employee_by_user_id(db, current_user.id)  # type: ignore
 
@@ -144,7 +146,7 @@ def get_visible_employees(db: Session, current_user: User):
     scope = job_title.scope
     level = job_title.level
 
-    query = db.query(Employee).options(*EMPLOYEE_LOAD_OPTIONS).join(JobTitle)
+    query = db.query(Employee).options(*_employee_load_options()).join(JobTitle)
     query = query.filter(JobTitle.level < level)
 
     if scope == PositionScope.GLOBAL:
@@ -200,7 +202,7 @@ def get_employee_by_user_id(db: Session, user_id: int):
     """Return the employee profile linked to a specific user account."""
     employee = (
         db.query(Employee)
-        .options(*EMPLOYEE_LOAD_OPTIONS)
+        .options(*_employee_load_options())
         .filter(Employee.user_id == user_id)
         .first()
     )
@@ -217,7 +219,7 @@ def update_employee(
     """Apply partial updates to an employee profile."""
     employee = (
         db.query(Employee)
-        .options(*EMPLOYEE_LOAD_OPTIONS)
+        .options(*_employee_load_options())
         .filter(Employee.id == employee_id)
         .first()
     )
@@ -260,7 +262,7 @@ def update_employee(
 
     return (
         db.query(Employee)
-        .options(*EMPLOYEE_LOAD_OPTIONS)
+        .options(*_employee_load_options())
         .filter(Employee.id == employee.id)
         .first()
     )

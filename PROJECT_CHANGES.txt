@@ -250,6 +250,9 @@ BUGS THAT WERE FIXED
 18. Several list endpoints returned unbounded datasets.
     - Added optional limit/offset pagination to core list endpoints.
 
+19. SQLAlchemy startup could fail with KeyError: 'JobTitlePermission'.
+    - Fixed model registration timing so cross-app relationships resolve cleanly during mapper configuration.
+
 
 DATABASE CHANGES
 ----------------
@@ -325,6 +328,7 @@ Problems found:
 12. Inactive-user authentication behavior was inconsistent between login and dependency checks.
 13. The API had no admin dashboard endpoints and no aggregated personal dashboard endpoint.
 14. Some list endpoints could grow unbounded and become inefficient.
+15. ORM mapper configuration could happen before all cross-app models were registered.
 
 How they were fixed:
 1. Added a complete attendance app with a dedicated model, service layer, router, and migration.
@@ -342,6 +346,7 @@ How they were fixed:
 13. Added permission creation/deletion endpoints and kept assignments database-driven.
 14. Added a dashboard module for admin system metrics and user dashboard summaries.
 15. Added optional limit/offset pagination to core list endpoints while preserving existing list response shapes.
+16. Deferred loader-option construction in service modules so SQLAlchemy does not configure mappers before all models are imported.
 
 Why this solution was chosen:
 1. It keeps the existing modular architecture intact.
@@ -351,6 +356,7 @@ Why this solution was chosen:
 5. It improves security and data integrity without removing existing capabilities.
 6. It uses the existing first_login field instead of inventing parallel account-state logic.
 7. It avoids wrapping list responses in a new pagination envelope, which preserves compatibility with existing consumers.
+8. It fixes ORM startup ordering without changing the database schema or resetting data.
 
 Architecture decisions made:
 1. Attendance was added as its own app instead of mixing it into employees.
@@ -359,6 +365,7 @@ Architecture decisions made:
 4. Compatibility for the misspelled /organization/job-titels path was preserved while introducing the corrected endpoint.
 5. Password-change enforcement is signaled through the existing login response contract with additive fields, which keeps the current authentication flow compatible.
 6. Dashboard aggregation lives in its own module so cross-domain queries do not leak into routers or unrelated business services.
+7. Model registration order in db/models.py was made less fragile, and mapper-heavy service constants were turned into runtime helpers.
 
 
 VERIFICATION
@@ -379,6 +386,7 @@ VERIFICATION
    - permission creation and deletion
    - admin dashboard stats
    - user dashboard summary
+   - direct application import and ORM startup without JobTitlePermission mapper errors
    - organization setup
    - permission assignment
    - employee creation

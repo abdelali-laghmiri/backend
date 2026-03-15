@@ -25,11 +25,14 @@ from core.pagination import apply_pagination
 # workflow creation, request submission, and approvals.
 # =====================================================
 
-REQUEST_LOAD_OPTIONS = (
-    joinedload(Request.request_type),
-    joinedload(Request.employee).joinedload(Employee.user),
-    selectinload(Request.approvals).joinedload(RequestApproval.approver),
-)
+def _request_load_options():
+    """Build loader options lazily so mapper configuration happens after model registration."""
+
+    return (
+        joinedload(Request.request_type),
+        joinedload(Request.employee).joinedload(Employee.user),
+        selectinload(Request.approvals).joinedload(RequestApproval.approver),
+    )
 
 
 # =====================================================
@@ -612,7 +615,7 @@ def create_request(
 
     return (
         db.query(Request)
-        .options(*REQUEST_LOAD_OPTIONS)
+        .options(*_request_load_options())
         .filter(Request.id == request.id)
         .first()
     )
@@ -630,7 +633,7 @@ def get_my_requests(
 
     query = (
         db.query(Request)
-        .options(*REQUEST_LOAD_OPTIONS)
+        .options(*_request_load_options())
         .filter(Request.employee_id == employee.id)
         .order_by(Request.created_at.desc(), Request.id.desc())
     )
@@ -646,7 +649,7 @@ def get_request_by_id(
 
     request = (
         db.query(Request)
-        .options(*REQUEST_LOAD_OPTIONS)
+        .options(*_request_load_options())
         .filter(Request.id == request_id)
         .first()
     )
