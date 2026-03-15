@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
 
-from apps.auth.models import User
+from apps.auth.models import User, UserRole
 from apps.employees.models import Employee
 from apps.organization.models import JobTitle
 from apps.permissions.models import Permission, JobTitlePermission
@@ -12,12 +12,42 @@ from core.pagination import apply_pagination
 # =====================================================
 
 
+def list_user_permission_names(
+    db: Session,
+    user: User,
+) -> list[str]:
+    """Return the effective permission names granted to a user."""
+
+    if user.role == UserRole.SUPERUSER:
+        return [name for (name,) in db.query(Permission.name).order_by(Permission.name).all()]
+
+    permission_rows = (
+        db.query(Permission.name)
+        .join(
+            JobTitlePermission,
+            JobTitlePermission.permission_id == Permission.id,
+        )
+        .join(
+            Employee,
+            Employee.job_title_id == JobTitlePermission.job_title_id,
+        )
+        .filter(Employee.user_id == user.id)
+        .distinct()
+        .order_by(Permission.name)
+        .all()
+    )
+    return [name for (name,) in permission_rows]
+
+
 def user_has_permission(
     db: Session,
     user: User,
     permission_name: str
 ) -> bool:
     """Check whether the user's job title grants the requested permission."""
+    if user.role == UserRole.SUPERUSER:
+        return True
+
     permission = (
         db.query(Permission.id)
         .join(

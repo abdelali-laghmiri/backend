@@ -11,6 +11,7 @@ from apps.auth.schemas import (
     UserResponse,
 )
 from apps.auth.services import authenticate_user, change_password
+from apps.permissions.services import list_user_permission_names
 from core.security import create_access_token
 from db.session import get_db
 
@@ -78,6 +79,11 @@ def change_password_endpoint(
 
 
 @router.get("/me", response_model=UserResponse)
-def get_me(current_user=Depends(get_current_user)):
+def get_me(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """Return the currently authenticated user."""
-    return current_user
+    response = UserResponse.model_validate(current_user, from_attributes=True).model_dump()
+    response["permissions"] = list_user_permission_names(db, current_user)
+    return response

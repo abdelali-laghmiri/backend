@@ -181,6 +181,8 @@ If `requires_password_change` is `true`:
 3. Call `POST /auth/change-password`.
 4. Refresh user state with `GET /auth/me`.
 
+`GET /auth/me` returns the authenticated user bootstrap payload and now includes a `permissions` array with the effective permission names for the logged-in user.
+
 
 ## Section 4 - API Architecture
 
@@ -560,6 +562,26 @@ Example response:
   "token_type": "bearer",
   "requires_password_change": true,
   "message": "Password change required before normal use."
+}
+```
+
+### Current user bootstrap
+
+Example `GET /auth/me` response:
+
+```json
+{
+  "id": 5,
+  "matricule": "emp005",
+  "role": "user",
+  "is_active": true,
+  "first_login": false,
+  "created_at": "2026-03-15T10:00:00Z",
+  "permissions": [
+    "employees.read",
+    "employees.create",
+    "requests.create"
+  ]
 }
 ```
 

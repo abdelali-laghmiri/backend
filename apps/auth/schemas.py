@@ -25,6 +25,7 @@ class UserResponse(BaseModel):
     is_active: bool
     first_login: bool
     created_at: datetime
+    permissions: list[str] = Field(default_factory=list)
     # Use Pydantic v2 ORM serialization config.
     model_config = ConfigDict(from_attributes=True)
 
